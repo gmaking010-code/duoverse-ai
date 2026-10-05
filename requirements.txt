@@ -1,0 +1,6 @@
+flask
+gunicorn
+google-genai
+authlib
+requests
+waitress

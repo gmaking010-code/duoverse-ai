@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duoverse AI Studio</title>
+
+    <!-- PWA Web App Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#090d16">
+
+    <style>
+        :root {
+            --bg-color: #090d16;
+            --panel-bg: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-cyan: #38bdf8;
+            --accent-purple: #c084fc;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+            --user-msg-bg: rgba(56, 189, 248, 0.12);
+            --bot-msg-bg: rgba(30, 41, 59, 0.5);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #090d16 70%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ai-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent-gradient);
+            box-shadow: 0 0 16px var(--accent-cyan);
+            animation: pulseOrb 3s infinite ease-in-out;
+        }
+
+        .brand-name {
+            font-size: 20px;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-tag {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Main Chat Workspace */
+        main {
+            flex: 1;
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 70px);
+            padding: 20px;
+        }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding-right: 8px;
+            margin-bottom: 16px;
+        }
+
+        #chat-container::-webkit-scrollbar { width: 6px; }
+        #chat-container::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+
+        /* Message Bubbles */
+        .message-row {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+        }
+
+        .message-row.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-row.bot {
+            align-self: flex-start;
+        }
+
+        .msg-bubble {
+            padding: 14px 18px;
+            border-radius: 16px;
+            line-height: 1.6;
+            font-size: 15px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message-row.user .msg-bubble {
+            background: var(--user-msg-bg);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-row.bot .msg-bubble {
+            background: var(--bot-msg-bg);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-bubble img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* Quick Action Prompts */
+        .prompt-chips {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+
+        .prompt-chips::-webkit-scrollbar { display: none; }
+
+        .chip {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .chip:hover {
+            color: var(--text-main);
+            border-color: var(--accent-cyan);
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        /* Input Controls */
+        .input-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .attachment-preview {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            width: fit-content;
+        }
+
+        .attachment-preview img {
+            width: 36px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .input-box-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-main);
+            font-size: 15px;
+            resize: none;
+            max-height: 150px;
+            min-height: 24px;
+            line-height: 1.5;
+            font-family: inherit;
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .icon-btn:hover {
+            color: var(--text-main);
+            border-color: var(--accent-cyan);
+        }
+
+        .send-btn {
+            background: var(--accent-gradient);
+            border: none;
+            color: #fff;
+            padding: 0 18px;
+            height: 38px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        .send-btn:hover { opacity: 0.9; }
+
+        @keyframes pulseOrb {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.08); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand-box">
+            <div class="ai-avatar"></div>
+            <div class="brand-name">Duoverse AI Studio</div>
+        </div>
+        <div class="header-controls">
+            <span class="user-tag">👤 {{ user_name }}</span>
+            <button class="btn" onclick="clearChat()">Clear Chat</button>
+            <button class="btn" onclick="logout()">Logout</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="chat-container"></div>
+
+        <div class="prompt-chips">
+            <div class="chip" onclick="setInput('Explain how quantum computing works in simple terms')">💡 Quantum Computing</div>
+            <div class="chip" onclick="setInput('Write a Python script for file organizing')">🐍 Python Automation</div>
+            <div class="chip" onclick="setInput('Summarize our key points so far')">📝 Summarize Context</div>
+        </div>
+
+        <div class="input-panel">
+            <div class="attachment-preview" id="attachment-preview">
+                <img id="preview-img" src="" alt="Attachment">
+                <span style="font-size: 12px; color: var(--text-muted);">Photo attached</span>
+                <button class="btn" style="padding: 2px 6px; font-size: 11px;" onclick="removeAttachment()">✕</button>
+            </div>
+
+            <div class="input-box-row">
+                <label class="icon-btn" title="Attach image">
+                    📷
+                    <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="onFileSelect(event)">
+                </label>
+                <textarea id="user-input" placeholder="Ask Duoverse anything..." rows="1" oninput="autoResize(this)"></textarea>
+                <button class="send-btn" onclick="submitMessage()">Send</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let attachedImageBase64 = null;
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        function setInput(text) {
+            const input = document.getElementById("user-input");
+            input.value = text;
+            autoResize(input);
+            input.focus();
+        }
+
+        function onFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                attachedImageBase64 = e.target.result;
+                document.getElementById("preview-img").src = attachedImageBase64;
+                document.getElementById("attachment-preview").style.display = "flex";
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeAttachment() {
+            attachedImageBase64 = null;
+            document.getElementById("file-input").value = "";
+            document.getElementById("attachment-preview").style.display = "none";
+        }
+
+        document.getElementById("user-input").addEventListener("keydown", function(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitMessage();
+            }
+        });
+
+        async function submitMessage() {
+            const inputEl = document.getElementById("user-input");
+            const text = inputEl.value.trim();
+            const container = document.getElementById("chat-container");
+
+            if (!text && !attachedImageBase64) return;
+
+            // Render User Bubble
+            const userRow = document.createElement("div");
+            userRow.className = "message-row user";
+            let contentHtml = `<div class="msg-bubble">`;
+            if (attachedImageBase64) {
+                contentHtml += `<img src="${attachedImageBase64}">`;
+            }
+            contentHtml += `${escapeHtml(text)}</div>`;
+            userRow.innerHTML = contentHtml;
+            container.appendChild(userRow);
+
+            // Clear Input
+            inputEl.value = "";
+            inputEl.style.height = "auto";
+            const currentPayloadImage = attachedImageBase64;
+            removeAttachment();
+
+            // Render Bot Skeleton Bubble
+            const botRow = document.createElement("div");
+            botRow.className = "message-row bot";
+            const botBubble = document.createElement("div");
+            botBubble.className = "msg-bubble";
+            botBubble.innerText = "Thinking...";
+            botRow.appendChild(botBubble);
+            container.appendChild(botRow);
+
+            container.scrollTop = container.scrollHeight;
+
+            try {
+                const response = await fetch("/chat_stream", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text, image: currentPayloadImage })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let accumulatedText = "";
+                botBubble.innerText = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split("\n\n");
+
+                    for (let line of lines) {
+                        if (line.startsWith("data: ")) {
+                            try {
+                                const data = JSON.parse(line.replace("data: ", ""));
+                                if (data.token) {
+                                    accumulatedText += data.token;
+                                    botBubble.innerText = accumulatedText;
+                                } else if (data.error) {
+                                    botBubble.innerText = "Error: " + data.error;
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (err) {
+                botBubble.innerText = "Error connecting to service.";
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        async function clearChat() {
+            await fetch("/clear", { method: "POST" });
+            document.getElementById("chat-container").innerHTML = "";
+        }
+
+        async function logout() {
+            await fetch("/logout", { method: "POST" });
+            window.location.href = "/login";
+        }
+    </script>
+</body>
+</html>
