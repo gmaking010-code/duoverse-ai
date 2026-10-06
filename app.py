@@ -52,6 +52,9 @@ def home():
     if not session.get("logged_in"):
         return redirect(url_for("login"))
     return render_template("index.html", user_name=session.get("user_name", "User"))
+@app.route('/google90cbb23eccda2c2f.html')
+def google_verify():
+    return app.send_static_file('google90cbb23eccda2c2f.html')
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
