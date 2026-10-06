@@ -1,17 +1,13 @@
 import os
 import json
 import base64
-from flask import Flask, render_template, request, Response, session, stream_with_context, jsonify, redirect, url_for
+from flask import Flask, render_template, request, Response, session, stream_with_context, jsonify, redirect, url_for, send_from_directory
 from google import genai
 from google.genai import types
 from authlib.integrations.flask_client import OAuth
-from waitress import serve
-
-# Allow HTTP for local development OAuth testing
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "duoverse_secret_key_12345")
 
 # Login Credentials
 VALID_USERNAME = "AD patel"
@@ -44,17 +40,16 @@ Provide structured, clear, and comprehensive responses using clean Markdown.
 When an image is provided, analyze and describe it accurately based on the user's prompt.
 """
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6L9GXaE-5q87_hNSlcItEBPpIdYZeCBU8IGecw2UEcXJg")
-client = genai.Client(api_key=GEMINI_API_KEY)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+# --- Main App & Auth Routes ---
 
 @app.route("/")
 def home():
     if not session.get("logged_in"):
         return redirect(url_for("login"))
     return render_template("index.html", user_name=session.get("user_name", "User"))
-@app.route('/google90cbb23eccda2c2f.html')
-def google_verify():
-    return app.send_static_file('google90cbb23eccda2c2f.html')
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -93,6 +88,26 @@ def logout():
     session.clear()
     return jsonify({"status": "success"})
 
+# --- SEO & Verification Routes ---
+
+@app.route('/google90cbb23eccda2c2f.html')
+def google_verify():
+    return send_from_directory('static', 'google90cbb23eccda2c2f.html')
+
+@app.route('/sitemap.xml')
+def sitemap():
+    return send_from_directory('static', 'sitemap.xml', mimetype='application/xml')
+
+@app.route('/robots.txt')
+def robots():
+    return send_from_directory('static', 'robots.txt', mimetype='text/plain')
+
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory('static', 'manifest.json', mimetype='application/json')
+
+# --- Chat Stream Endpoint ---
+
 @app.route("/chat_stream", methods=["POST"])
 def chat_stream():
     if not session.get("logged_in"):
@@ -107,7 +122,6 @@ def chat_stream():
 
     history = session.get("history", [])
     
-    # Reconstruct text history turns
     formatted_history = [
         types.Content(role=msg["role"], parts=[types.Part.from_text(text=msg["text"])])
         for msg in history
@@ -115,7 +129,6 @@ def chat_stream():
 
     current_parts = []
     
-    # Process base64 image if attached
     if image_b64:
         if "," in image_b64:
             header, image_b64 = image_b64.split(",", 1)
@@ -136,6 +149,10 @@ def chat_stream():
     def generate():
         full_response = ""
         try:
+            if not client:
+                yield f"data: {json.dumps({'error': 'GEMINI_API_KEY environment variable missing.'})}\n\n"
+                return
+
             response = client.models.generate_content_stream(
                 model="gemini-2.5-flash",
                 contents=formatted_history,
@@ -151,7 +168,6 @@ def chat_stream():
                     full_response += token
                     yield f"data: {json.dumps({'token': token})}\n\n"
 
-            # Store turn into conversation memory
             history.append({"role": "user", "text": f"[Photo Uploaded] {prompt_text}" if image_b64 else prompt_text})
             history.append({"role": "model", "text": full_response})
             session["history"] = history
@@ -166,8 +182,8 @@ def clear():
     session["history"] = []
     return jsonify({"status": "success"})
 
+# --- Server Start ---
+
 if __name__ == "__main__":
-    print("--------------------------------------------------")
-    print(" Serving Duoverse AI on http://127.0.0.1:5000")
-    print("--------------------------------------------------")
-    serve(app, host="127.0.0.1", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

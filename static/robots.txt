@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://duoverse-ai.onrender.com/static/sitemap.xml
+Sitemap: https://duoverse-ai-ykr1.onrender.com/sitemap.xml
